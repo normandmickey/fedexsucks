@@ -109,7 +109,15 @@ def _flatten_strings(value):
 
 
 
+def _tokenize(text: str) -> list[str]:
+    import re
+    return [token for token in re.findall(r"[a-z0-9']+", (text or '').lower()) if token]
+
+
+
 def _package_search_blob(package: Package) -> str:
+    payload = package.last_raw_payload or {}
+    raw_row = (payload.get('imported_csv_row') or payload.get('row') or {})
     parts = [
         package.tracking_number,
         package.nickname,
@@ -118,6 +126,21 @@ def _package_search_blob(package: Package) -> str:
         package.latest_location,
         package.estimated_delivery,
         package.notes,
+        raw_row.get('Recipient contact name', ''),
+        raw_row.get('Recipient company', ''),
+        raw_row.get('Recipient address', ''),
+        raw_row.get('Recipient city', ''),
+        raw_row.get('Recipient state', ''),
+        raw_row.get('Recipient postal', ''),
+        raw_row.get('Shipper name', ''),
+        raw_row.get('Shipper company', ''),
+        raw_row.get('Shipper address', ''),
+        raw_row.get('Shipper city', ''),
+        raw_row.get('Shipper state', ''),
+        raw_row.get('Shipper postal', ''),
+        raw_row.get('Delivered To', ''),
+        raw_row.get('Received by', ''),
+        raw_row.get('Reference', ''),
     ]
     parts.extend(_flatten_strings(package.last_raw_payload or {}))
     for event in package.events.all()[:20]:
@@ -137,18 +160,28 @@ def search_packages(query: str, limit: int = 10) -> list[dict]:
     if not query:
         return []
 
+    query_tokens = _tokenize(query)
     candidates = list(Package.objects.prefetch_related('events').all()[:500])
     scored = []
     for package in candidates:
         blob = _package_search_blob(package)
-        if query in blob:
-            score = 0
-            if query == (package.tracking_number or '').lower():
-                score += 100
-            if query in (package.nickname or '').lower():
-                score += 20
-            if query in (package.status or '').lower():
-                score += 5
+        score = 0
+        if query == (package.tracking_number or '').lower():
+            score += 100
+        if query and query in blob:
+            score += 40
+        nickname = (package.nickname or '').lower()
+        if query and query in nickname:
+            score += 20
+        if query and query in (package.status or '').lower():
+            score += 5
+        if query_tokens:
+            matched_tokens = sum(1 for token in query_tokens if token in blob)
+            if matched_tokens:
+                score += matched_tokens * 8
+                if matched_tokens == len(query_tokens):
+                    score += 15
+        if score > 0:
             scored.append((score, package.updated_at, package))
 
     scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
