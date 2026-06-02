@@ -7,11 +7,13 @@ from tempfile import NamedTemporaryFile
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.views.decorators.http import require_GET
 from django.utils import timezone
 
 from .fedex import env, fetch_tracking_result, first_result, load_local_env
+from .internal_api import InternalAPIAuthError, get_package_or_404, require_internal_api_key, search_packages, serialize_package_detail
 from .models import Package, SavedReference
 from .payroll_tax import PayrollTaxConfigurationError, PayrollTaxLookupError, lookup_payroll_taxes
 from .research import ResearchConfigurationError, run_research
@@ -287,7 +289,67 @@ def weather_forecast(request: HttpRequest) -> HttpResponse:
     })
 
 
-@login_required
+@require_GET
+def internal_api_health(request: HttpRequest) -> HttpResponse:
+    try:
+        require_internal_api_key(request)
+    except InternalAPIAuthError as exc:
+        return JsonResponse({'detail': str(exc)}, status=401)
+
+    return JsonResponse({
+        'ok': True,
+        'service': 'fedexsucks',
+        'api': 'internal',
+    })
+
+
+@require_GET
+def internal_api_package_search(request: HttpRequest) -> HttpResponse:
+    try:
+        require_internal_api_key(request)
+    except InternalAPIAuthError as exc:
+        return JsonResponse({'detail': str(exc)}, status=401)
+
+    query = (request.GET.get('q') or '').strip()
+    try:
+        limit = int((request.GET.get('limit') or '10').strip())
+    except ValueError:
+        limit = 10
+    limit = max(1, min(limit, 25))
+
+    return JsonResponse({
+        'query': query,
+        'results': search_packages(query, limit=limit),
+    })
+
+
+@require_GET
+def internal_api_package_detail(request: HttpRequest, tracking_number: str) -> HttpResponse:
+    try:
+        require_internal_api_key(request)
+    except InternalAPIAuthError as exc:
+        return JsonResponse({'detail': str(exc)}, status=401)
+
+    package = get_package_or_404(tracking_number)
+    return JsonResponse(serialize_package_detail(package))
+
+
+@require_GET
+def internal_api_package_latest_status(request: HttpRequest, tracking_number: str) -> HttpResponse:
+    try:
+        require_internal_api_key(request)
+    except InternalAPIAuthError as exc:
+        return JsonResponse({'detail': str(exc)}, status=401)
+
+    package = get_package_or_404(tracking_number)
+    detail = serialize_package_detail(package)
+    return JsonResponse({
+        'package': detail['package'],
+        'latest_event': detail['events'][0] if detail['events'] else None,
+    })
+
+
+
 def home(request: HttpRequest) -> HttpResponse:
     query = (request.GET.get('q') or '').strip()
     from_date_raw = (request.GET.get('from') or '').strip()

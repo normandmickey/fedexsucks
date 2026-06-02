@@ -42,8 +42,27 @@ Expected on the VPS:
 - `.env` present on the server
 - systemd service named `fedexsucks.service`
 
+## Internal API
+
+FedExSucks now exposes a small bearer-protected internal API intended for Docstore or other trusted internal callers.
+
+Expected auth header:
+
+```bash
+Authorization: Bearer $INTERNAL_API_KEY
+```
+
+Endpoints:
+
+- `GET /api/internal/health/`
+- `GET /api/internal/packages/search/?q=<query>&limit=10`
+- `GET /api/internal/packages/<tracking_number>/`
+- `GET /api/internal/packages/<tracking_number>/latest-status/`
+
+This API is intentionally simple and private-facing. It should stay behind app auth, host-level controls, and an internal shared secret.
+
 ## Next likely steps
 
 - move live data to Postgres
-- add a small authenticated API for Docstore integration
+- expand Docstore-side shipping workflows after the first integration is live
 - later decide whether to rename the project/repo after the first successful port
