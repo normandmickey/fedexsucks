@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · FedExSucks</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    .card { width:min(420px, 92vw); background:#111827; border:1px solid #374151; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.35); }
+    h1 { margin:0 0 10px; font-size:1.5rem; }
+    p { color:#94a3b8; margin:0 0 18px; }
+    label { display:block; margin:12px 0 6px; color:#cbd5e1; }
+    input { width:100%; box-sizing:border-box; padding:12px 14px; border-radius:10px; border:1px solid #475569; background:#0b1220; color:#f8fafc; }
+    button { margin-top:18px; width:100%; padding:12px 14px; border:0; border-radius:10px; background:#2563eb; color:white; font-weight:600; cursor:pointer; }
+    .errorlist { color:#fecaca; margin:0 0 12px; padding-left:18px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Sign in</h1>
+    <p>FedExSucks is now protected. Sign in to view package tracking and references.</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <label for="id_username">Username</label>
+      {{ form.username }}
+      <label for="id_password">Password</label>
+      {{ form.password }}
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>

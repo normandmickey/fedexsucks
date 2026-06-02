@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -176,6 +177,7 @@ def validate_lookup_dates(ship_date_begin: str | None, ship_date_end: str | None
     return begin.isoformat(), end.isoformat(), None
 
 
+@login_required
 def package_detail(request: HttpRequest, tracking_number: str) -> HttpResponse:
     try:
         package = Package.objects.prefetch_related('events').get(tracking_number=tracking_number)
@@ -201,6 +203,7 @@ def package_detail(request: HttpRequest, tracking_number: str) -> HttpResponse:
     })
 
 
+@login_required
 def research(request: HttpRequest) -> HttpResponse:
     topic = (request.POST.get('topic') or request.GET.get('topic') or '').strip()
     report = ''
@@ -228,6 +231,7 @@ def research(request: HttpRequest) -> HttpResponse:
     })
 
 
+@login_required
 def payroll_tax_lookup(request: HttpRequest) -> HttpResponse:
     form_values = {
         'workState': (request.POST.get('workState') or 'CA').strip(),
@@ -266,6 +270,7 @@ def payroll_tax_lookup(request: HttpRequest) -> HttpResponse:
     })
 
 
+@login_required
 def weather_forecast(request: HttpRequest) -> HttpResponse:
     location = (request.GET.get('location') or 'New York').strip() or 'New York'
     forecast = None
@@ -282,6 +287,7 @@ def weather_forecast(request: HttpRequest) -> HttpResponse:
     })
 
 
+@login_required
 def home(request: HttpRequest) -> HttpResponse:
     query = (request.GET.get('q') or '').strip()
     from_date_raw = (request.GET.get('from') or '').strip()
