@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research · FedExSucks</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #111827; color: #f9fafb; }
+    h1, h2 { margin-bottom: 0.5rem; }
+    p { color: #d1d5db; }
+    .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+    .meta { color: #9ca3af; font-size: 0.95rem; margin: 0.25rem 0; }
+    .button-link, button { padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid #2563eb; background: #2563eb; color: white; text-decoration: none; display: inline-block; cursor: pointer; }
+    textarea { width: 100%; min-height: 120px; padding: 0.8rem 0.9rem; border-radius: 10px; border: 1px solid #4b5563; background: #0f172a; color: #f9fafb; }
+    .messages { margin: 1rem 0; }
+    .message { padding: 0.85rem 1rem; border-radius: 10px; margin-bottom: 0.75rem; }
+    .message.success { background: #052e16; border: 1px solid #166534; color: #dcfce7; }
+    .message.error { background: #450a0a; border: 1px solid #991b1b; color: #fecaca; }
+    .report { white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+    .brand-row { display: flex; align-items: center; gap: 0.9rem; margin: 1rem 0 0.5rem; }
+    .fedex-badge { display: inline-flex; align-items: center; font-weight: 800; font-size: 1.1rem; border-radius: 999px; overflow: hidden; border: 1px solid #374151; }
+    .fedex-badge .fed { background: #4d148c; color: #fff; padding: 0.35rem 0.55rem; }
+    .fedex-badge .ex { background: #ff6600; color: #fff; padding: 0.35rem 0.55rem; }
+    ul { margin-top: 0.75rem; padding-left: 1.25rem; }
+    li { margin-bottom: 0.5rem; }
+    a { color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <a class="button-link" href="/">Back to dashboard</a>
+  <div class="brand-row">
+    <div class="fedex-badge" aria-label="FedEx">
+      <span class="fed">Fed</span><span class="ex">Ex</span>
+    </div>
+    <h1>FedExSucks Research</h1>
+  </div>
+  <p>Run a GPT Researcher report from a topic prompt.</p>
+
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="message {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Research topic</h2>
+    <form method="post">
+      {% csrf_token %}
+      <textarea name="topic" placeholder="Enter a research topic...">{{ topic }}</textarea>
+      <div style="margin-top: 0.85rem;">
+        <button type="submit">Run research</button>
+      </div>
+    </form>
+    <p class="meta">Requires OPENAI_API_KEY and TAVILY_API_KEY in the environment.</p>
+  </div>
+
+  {% if report %}
+    <div class="card">
+      <h2>Report</h2>
+      <div class="report">{{ report }}</div>
+    </div>
+  {% endif %}
+
+  {% if sources %}
+    <div class="card">
+      <h2>Sources</h2>
+      <ul>
+        {% for source in sources %}
+          <li><a href="{{ source }}" target="_blank" rel="noopener noreferrer">{{ source }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</body>
+</html>

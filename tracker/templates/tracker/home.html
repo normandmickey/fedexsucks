@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FedExSucks</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #111827; color: #f9fafb; }
+    h1 { margin-bottom: 0.25rem; }
+    h2, h3 { margin-bottom: 0.5rem; }
+    p { color: #d1d5db; }
+    .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+    .meta { color: #9ca3af; font-size: 0.95rem; margin: 0.25rem 0; }
+    .empty { padding: 1rem; border: 1px dashed #4b5563; border-radius: 12px; }
+    .section { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #374151; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; }
+    .panel { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 0.75rem; }
+    .label { color: #93c5fd; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
+    .value { color: #f9fafb; word-break: break-word; }
+    ul { margin-top: 0.75rem; padding-left: 1.25rem; }
+    li { margin-bottom: 0.4rem; }
+    pre { white-space: pre-wrap; word-break: break-word; font-size: 0.85rem; color: #d1d5db; }
+    form.search, form.lookup, form.save-reference { margin: 1rem 0 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; }
+    .field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 180px; flex: 0 1 auto; }
+    .field label { color: #93c5fd; font-size: 0.85rem; }
+    input[type="text"], input[type="date"], select { width: 100%; min-height: 46px; padding: 0.8rem 0.9rem; border-radius: 10px; border: 1px solid #4b5563; background: #0f172a; color: #f9fafb; box-sizing: border-box; }
+    button, a.button-link { padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid #2563eb; background: #2563eb; color: white; text-decoration: none; cursor: pointer; display: inline-block; }
+    .messages { margin: 1rem 0; }
+    .message { padding: 0.85rem 1rem; border-radius: 10px; margin-bottom: 0.75rem; }
+    .message.success { background: #052e16; border: 1px solid #166534; color: #dcfce7; }
+    .message.error { background: #450a0a; border: 1px solid #991b1b; color: #fecaca; }
+    .lookup-results { margin: 1rem 0 2rem; }
+    .summary-banner { background: #082f49; border: 1px solid #0ea5e9; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+    .summary-banner strong { color: #e0f2fe; }
+    .queue-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .queue-table th, .queue-table td { text-align: left; padding: 0.85rem 0.75rem; border-top: 1px solid #374151; vertical-align: top; }
+    .queue-table th { color: #93c5fd; font-size: 0.85rem; font-weight: 600; }
+    .queue-table td { color: #f9fafb; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .brand-row { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.5rem; }
+    .fedex-badge { display: inline-flex; align-items: center; font-weight: 800; font-size: 1.1rem; border-radius: 999px; overflow: hidden; border: 1px solid #374151; }
+    .fedex-badge .fed { background: #4d148c; color: #fff; padding: 0.35rem 0.55rem; }
+    .fedex-badge .ex { background: #ff6600; color: #fff; padding: 0.35rem 0.55rem; }
+  </style>
+</head>
+<body>
+  <div class="brand-row">
+    <div class="fedex-badge" aria-label="FedEx">
+      <span class="fed">Fed</span><span class="ex">Ex</span>
+    </div>
+    <h1>FedExSucks</h1>
+  </div>
+  <p>Manage references, look up packages by reference/account/date range, then separate real tracking hits from FedEx rows the public API could not resolve.</p>
+  <p>
+    <a class="button-link" href="/research/">Open research tool</a>
+    <a class="button-link" href="/weather/" style="margin-left: 0.5rem; background: #0f3b2e; border-color: #34d399;">Open weather forecaster</a>
+    <a class="button-link" href="/payroll-tax/" style="margin-left: 0.5rem; background: #111827; border-color: #4b5563;">Open payroll tax tool</a>
+  </p>
+
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="message {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Import new file</h2>
+    <form method="post" enctype="multipart/form-data" class="search">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="import_csv">
+      <div class="field" style="flex: 1 1 320px;">
+        <label for="shipping_csv">FedEx shipping history CSV</label>
+        <input id="shipping_csv" type="file" name="shipping_csv" accept=".csv,text/csv">
+      </div>
+      <button type="submit">Import file</button>
+    </form>
+  </div>
+
+  {% if lookup_results %}
+    <div class="card lookup-results">
+      <h2>3. Lookup results</h2>
+      <div class="summary-banner">
+        <div>
+          FedEx API returned <strong>{{ lookup_summary.real_hit_count }}</strong> trackable package(s)
+          {% if lookup_reference_label %} for saved reference <strong>{{ lookup_reference_label }}</strong>{% elif lookup_text %} for <strong>{{ lookup_text }}</strong>{% endif %}.
+        </div>
+        <div class="meta">Saved locally: {{ lookup_summary.stored_count }} · Unresolved FedEx rows: {{ lookup_summary.unresolved_count }}</div>
+        {% if lookup_summary.show_api_parity_note %}
+          <div class="meta" style="margin-top: 0.6rem; color: #fde68a;">
+            FedEx's public API returned no trackable packages for this lookup. A reference may still work on fedex.com even when this API does not return packages.
+          </div>
+        {% endif %}
+      </div>
+
+      {% if tracking_hits %}
+        <h3>Trackable packages</h3>
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th>Tracking</th>
+              <th>Status</th>
+              <th>Latest location</th>
+              <th>ETA</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for result in tracking_hits %}
+              <tr>
+                <td class="mono">{{ result.tracking_number }}</td>
+                <td>{{ result.status|default:"Unknown" }}{% if result.status_code %} ({{ result.status_code }}){% endif %}</td>
+                <td>{{ result.latest_location|default:"—" }}</td>
+                <td>{{ result.estimated_delivery|default:"—" }}</td>
+                <td><a class="button-link" href="/packages/{{ result.tracking_number|urlencode }}/">Details</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+
+      {% if unresolved_lookup_results %}
+        <h3>FedEx could not resolve these rows</h3>
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th>Returned value</th>
+              <th>Status</th>
+              <th>Latest location</th>
+              <th>ETA</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for result in unresolved_lookup_results %}
+              <tr>
+                <td class="mono">{{ result.raw_result.trackingNumberInfo.trackingNumber|default:"—" }}</td>
+                <td>{{ result.status|default:"Unknown" }}{% if result.status_code %} ({{ result.status_code }}){% endif %}</td>
+                <td>{{ result.latest_location|default:"—" }}</td>
+                <td>{{ result.estimated_delivery|default:"—" }}</td>
+                <td>
+                  {% if result.status_code == 'TRACKING.REFERENCENUMBER.NOTFOUND' %}
+                    Public API returned no trackable package for this row. This reference may still behave differently on fedex.com.
+                  {% else %}
+                    {{ result.error_message|default:"No tracking number returned" }}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Package queue</h2>
+    <div class="meta" style="margin-bottom: 0.75rem;">
+      <a class="button-link" href="/?view=active{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}" style="margin-right: 0.5rem; {% if status_view != 'active' %}background: #111827; border-color: #4b5563;{% endif %}">Active</a>
+      <a class="button-link" href="/?view=delivered{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}" style="margin-right: 0.5rem; {% if status_view != 'delivered' %}background: #111827; border-color: #4b5563;{% endif %}">Delivered</a>
+      <a class="button-link" href="/?view=all{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}" style="{% if status_view != 'all' %}background: #111827; border-color: #4b5563;{% endif %}">All</a>
+    </div>
+
+    <form method="get" class="search">
+      <input type="hidden" name="view" value="{{ status_view }}">
+      <div class="field" style="flex: 1 1 560px; min-width: 320px;">
+        <label for="q">Filter package queue</label>
+        <input id="q" type="text" name="q" value="{{ query }}" placeholder="Search tracking number, contact name, company, address, reference, or other imported shipping fields">
+      </div>
+      <div class="field" style="width: 160px; min-width: 160px;">
+        <label for="from">From date</label>
+        <input id="from" type="date" name="from" value="{{ from_date }}">
+      </div>
+      <div class="field" style="width: 160px; min-width: 160px;">
+        <label for="to">To date</label>
+        <input id="to" type="date" name="to" value="{{ to_date }}">
+      </div>
+      <button type="submit">Filter queue</button>
+      {% if query or from_date or to_date %}
+        <a class="button-link" href="/">Clear</a>
+      {% endif %}
+    </form>
+
+    {% if package_cards %}
+      <table class="queue-table">
+        <thead>
+          <tr>
+            <th>Tracking</th>
+            <th>Recipient</th>
+            <th>Dates</th>
+            <th>Status</th>
+            <th>Latest event</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for card in package_cards %}
+            <tr>
+              <td class="mono"><a href="/packages/{{ card.package.tracking_number|urlencode }}/" style="color: #93c5fd; text-decoration: none;">{{ card.package.tracking_number }}</a></td>
+              <td>
+                {% if card.recipient_contact %}<div><strong>{{ card.recipient_contact }}</strong></div>{% endif %}
+                {% if card.recipient_company %}<div class="meta">{{ card.recipient_company }}</div>{% endif %}
+                {% if card.recipient_address_summary %}<div class="meta">{{ card.recipient_address_summary }}</div>{% endif %}
+              </td>
+              <td>
+                {% if card.ship_date %}<div class="meta">Ship: {{ card.ship_date }}</div>{% endif %}
+                {% if card.delivered_date %}<div class="meta">Delivered: {{ card.delivered_date }}</div>{% endif %}
+                {% if not card.ship_date and not card.delivered_date %}<div class="meta">—</div>{% endif %}
+              </td>
+              <td>{{ card.package.status|default:"Unknown" }}{% if card.package.status_code %} ({{ card.package.status_code }}){% endif %}</td>
+              <td>{{ card.package.latest_event_at|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">No tracked packages yet.</div>
+    {% endif %}
+  </div>
+</body>
+</html>

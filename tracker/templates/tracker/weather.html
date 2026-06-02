@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FedExSucks Weather</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #111827; color: #f9fafb; }
+    h1 { margin-bottom: 0.25rem; }
+    p { color: #d1d5db; }
+    .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+    .meta { color: #9ca3af; }
+    .search { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; }
+    .field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 260px; flex: 1 1 360px; }
+    .field label { color: #93c5fd; font-size: 0.85rem; }
+    input[type="text"] { width: 100%; min-height: 46px; padding: 0.8rem 0.9rem; border-radius: 10px; border: 1px solid #4b5563; background: #0f172a; color: #f9fafb; box-sizing: border-box; }
+    button, a.button-link { padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid #2563eb; background: #2563eb; color: white; text-decoration: none; cursor: pointer; display: inline-block; }
+    .messages { margin: 1rem 0; }
+    .message { padding: 0.85rem 1rem; border-radius: 10px; margin-bottom: 0.75rem; }
+    .message.success { background: #052e16; border: 1px solid #166534; color: #dcfce7; }
+    .message.error { background: #450a0a; border: 1px solid #991b1b; color: #fecaca; }
+    .stats, .forecast-grid { display: grid; gap: 0.75rem; }
+    .stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .forecast-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .panel { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 0.75rem; }
+  </style>
+</head>
+<body>
+  <h1>Weather Forecaster</h1>
+  <p>FedExSucks side quest: a simple weather page powered by wttr.in.</p>
+  <p>
+    <a class="button-link" href="/">Back to package queue</a>
+  </p>
+
+  {% if messages %}
+    <div class="messages">
+      {% for message in messages %}
+        <div class="message {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <form method="get" class="search">
+      <div class="field">
+        <label for="location">Location</label>
+        <input id="location" type="text" name="location" value="{{ location }}" placeholder="City, airport code, or place name">
+      </div>
+      <button type="submit">Get forecast</button>
+    </form>
+  </div>
+
+  {% if forecast %}
+    <div class="card">
+      <h2>Current conditions for {{ forecast.location }}</h2>
+      <p>{{ forecast.current.description }}</p>
+      <div class="stats">
+        <div class="panel"><strong>Temp</strong><div>{{ forecast.current.temp_f }}°F / {{ forecast.current.temp_c }}°C</div></div>
+        <div class="panel"><strong>Feels like</strong><div>{{ forecast.current.feels_like_f }}°F / {{ forecast.current.feels_like_c }}°C</div></div>
+        <div class="panel"><strong>Humidity</strong><div>{{ forecast.current.humidity }}%</div></div>
+        <div class="panel"><strong>Wind</strong><div>{{ forecast.current.wind_mph }} mph / {{ forecast.current.wind_kmph }} km/h</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3-day forecast</h2>
+      <div class="forecast-grid">
+        {% for day in forecast.days %}
+          <div class="panel">
+            <h3>{{ day.date }}</h3>
+            <p>{{ day.summary }}</p>
+            <div class="meta">High: {{ day.max_temp_f }}°F / {{ day.max_temp_c }}°C</div>
+            <div class="meta">Low: {{ day.min_temp_f }}°F / {{ day.min_temp_c }}°C</div>
+            <div class="meta">Avg: {{ day.avg_temp_f }}°F / {{ day.avg_temp_c }}°C</div>
+            <div class="meta">Rain chance: {{ day.chance_of_rain }}%</div>
+            <div class="meta">Sun chance: {{ day.chance_of_sunshine }}%</div>
+            <div class="meta">UV index: {{ day.uv_index }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</body>
+</html>

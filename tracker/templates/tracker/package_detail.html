@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ package.tracking_number }} · FedExSucks</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #111827; color: #f9fafb; }
+    h1, h2, h3 { margin-bottom: 0.5rem; }
+    p { color: #d1d5db; }
+    .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+    .meta { color: #9ca3af; font-size: 0.95rem; margin: 0.25rem 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; }
+    .panel { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 0.75rem; }
+    .label { color: #93c5fd; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
+    .value { color: #f9fafb; word-break: break-word; }
+    .section { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #374151; }
+    .button-link { padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid #2563eb; background: #2563eb; color: white; text-decoration: none; display: inline-block; }
+    pre { white-space: pre-wrap; word-break: break-word; font-size: 0.85rem; color: #d1d5db; }
+    .brand-row { display: flex; align-items: center; gap: 0.9rem; margin: 1rem 0 0.5rem; }
+    .fedex-badge { display: inline-flex; align-items: center; font-weight: 800; font-size: 1.1rem; border-radius: 999px; overflow: hidden; border: 1px solid #374151; }
+    .fedex-badge .fed { background: #4d148c; color: #fff; padding: 0.35rem 0.55rem; }
+    .fedex-badge .ex { background: #ff6600; color: #fff; padding: 0.35rem 0.55rem; }
+  </style>
+</head>
+<body>
+  <a class="button-link" href="/">Back to dashboard</a>
+  <div class="brand-row">
+    <div class="fedex-badge" aria-label="FedEx">
+      <span class="fed">Fed</span><span class="ex">Ex</span>
+    </div>
+  </div>
+
+  {% if messages %}
+    <div class="card">
+      {% for message in messages %}
+        <div class="meta">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <h1>{{ package.tracking_number }}</h1>
+    {% if package.nickname %}<p>{{ package.nickname }}</p>{% endif %}
+    <form method="post" style="margin: 0.75rem 0 1rem;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="refresh_tracking">
+      <button class="button-link" type="submit">Refresh from FedEx</button>
+    </form>
+    <div class="meta">Status: {{ package.status|default:"Unknown" }}{% if package.status_code %} ({{ package.status_code }}){% endif %}</div>
+    <div class="meta">Latest location: {{ package.latest_location|default:"—" }}</div>
+    <div class="meta">Estimated delivery: {{ package.estimated_delivery|default:"—" }}</div>
+    <div class="meta">Latest event time: {{ package.latest_event_at|default:"—" }}</div>
+    <div class="meta">Last checked: {{ package.last_checked_at|default:"—" }}</div>
+  </div>
+
+  <div class="card">
+    <h2>Shipment addresses</h2>
+    <div class="grid">
+      <div class="panel">
+        <div class="label">Shipper</div>
+        <div class="value">
+          {% if card.shipper_address_lines %}
+            {% for line in card.shipper_address_lines %}
+              <div>{{ line }}</div>
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="label">Recipient</div>
+        <div class="value">
+          {% if card.recipient_address_lines %}
+            {% for line in card.recipient_address_lines %}
+              <div>{{ line }}</div>
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Recent events</h2>
+      {% if card.events %}
+        {% for event in card.events %}
+          <div class="section">
+            <div class="meta">{{ event.event_time|default:"—" }}</div>
+            <div><strong>{{ event.status|default:"Event" }}</strong>{% if event.status_code %} ({{ event.status_code }}){% endif %}</div>
+            <div class="meta">{{ event.location|default:"—" }}</div>
+            {% if event.details %}<div class="meta">{{ event.details }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>No stored events yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>
