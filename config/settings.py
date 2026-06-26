@@ -27,10 +27,10 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-fedexsucks-dev-only
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
 
-raw_allowed_hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,192.168.1.142,raspberrypi.local,raspberrypi.tail43d70b.ts.net')
+raw_allowed_hosts = os.getenv('DJANGO_ALLOWED_HOSTS') or os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,192.168.1.142,raspberrypi.local,raspberrypi.tail43d70b.ts.net')
 ALLOWED_HOSTS = [host.strip() for host in raw_allowed_hosts.split(',') if host.strip()]
 
-raw_csrf_trusted_origins = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://raspberrypi.tail43d70b.ts.net,http://192.168.1.142:8000,http://raspberrypi.local:8000')
+raw_csrf_trusted_origins = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS') or os.getenv('CSRF_TRUSTED_ORIGINS', 'https://raspberrypi.tail43d70b.ts.net,http://192.168.1.142:8000,http://raspberrypi.local:8000')
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in raw_csrf_trusted_origins.split(',') if origin.strip()]
 
 
