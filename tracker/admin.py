@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Package, PackageEvent, SavedReference
+from .models import CarrierCredential, Package, PackageEvent, SavedReference
 
 
 @admin.register(SavedReference)
@@ -38,6 +38,20 @@ class PackageAdmin(admin.ModelAdmin):
     search_fields = ('tracking_number', 'nickname', 'status', 'latest_location')
     readonly_fields = ('created_at', 'updated_at', 'last_checked_at', 'last_raw_payload')
     inlines = [PackageEventInline]
+
+
+@admin.register(CarrierCredential)
+class CarrierCredentialAdmin(admin.ModelAdmin):
+    list_display = ('carrier', 'owner', 'masked_api_key', 'has_secret', 'account_number', 'updated_at')
+    list_filter = ('carrier', 'owner')
+
+    @admin.display(description='API key')
+    def masked_api_key(self, obj):
+        return obj.masked_api_key
+
+    @admin.display(boolean=True, description='Secret')
+    def has_secret(self, obj):
+        return bool(obj.secret_key_enc)
 
 
 @admin.register(PackageEvent)

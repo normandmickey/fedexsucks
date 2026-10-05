@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from .credentials import decrypt_secret, encrypt_secret, mask
+
 
 class SavedReference(models.Model):
     owner = models.ForeignKey(
@@ -27,6 +29,65 @@ class SavedReference(models.Model):
 
     def __str__(self) -> str:
         return self.label or self.reference_value
+
+
+class CarrierCredential(models.Model):
+    """Per-tenant carrier API credentials (BYOK). Secrets encrypted at rest.
+
+    Field shapes by carrier:
+      fedex: api_key + secret_key (+ account_number for reference lookups)
+      ups:   api_key = client id, secret_key = client secret
+      usps:  api_key only
+    """
+
+    CARRIERS = [('fedex', 'FedEx'), ('ups', 'UPS'), ('usps', 'USPS')]
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='carrier_credentials',
+    )
+    carrier = models.CharField(max_length=20, choices=CARRIERS, db_index=True)
+    api_key_enc = models.TextField(blank=True)
+    secret_key_enc = models.TextField(blank=True)
+    account_number = models.CharField(max_length=100, blank=True)
+    base_url = models.CharField(max_length=255, blank=True,
+                                help_text='Optional API base URL override')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['carrier']
+        constraints = [
+            models.UniqueConstraint(fields=['owner', 'carrier'], name='uniq_credential_owner_carrier'),
+        ]
+
+    def set_secrets(self, api_key: str = '', secret_key: str = '') -> None:
+        if api_key:
+            self.api_key_enc = encrypt_secret(api_key)
+        if secret_key:
+            self.secret_key_enc = encrypt_secret(secret_key)
+
+    @property
+    def api_key(self) -> str:
+        return decrypt_secret(self.api_key_enc)
+
+    @property
+    def secret_key(self) -> str:
+        return decrypt_secret(self.secret_key_enc)
+
+    @property
+    def masked_api_key(self) -> str:
+        return mask(self.api_key)
+
+    @property
+    def masked_secret_key(self) -> str:
+        return mask(self.secret_key)
+
+    def __str__(self) -> str:
+        return f'{self.carrier} credentials ({self.owner})'
 
 
 class Package(models.Model):

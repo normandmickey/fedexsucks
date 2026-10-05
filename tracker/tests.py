@@ -3,7 +3,7 @@ from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 
-from .models import Package, SavedReference
+from .models import CarrierCredential, Package, SavedReference
 
 
 def make_users():
@@ -262,3 +262,36 @@ class MultiCarrierImportTests(TestCase):
         self.assertIn('tracking', map_columns(ups_fields))
         self.assertIn('tracking', map_columns(['Tracking #', 'Foo']))
         self.assertNotIn('tracking', map_columns(['Order ID', 'Foo']))
+
+
+class CarrierCredentialTests(TestCase):
+    def setUp(self):
+        self.alice, self.bob = make_users()
+
+    def test_round_trip_encryption(self):
+        cred = CarrierCredential.objects.create(carrier='ups', owner=self.alice)
+        cred.set_secrets(api_key='MY-CLIENT-ID', secret_key='MY-SECRET')
+        cred.save()
+        fresh = CarrierCredential.objects.get(pk=cred.pk)
+        self.assertEqual(fresh.api_key, 'MY-CLIENT-ID')
+        self.assertEqual(fresh.secret_key, 'MY-SECRET')
+        self.assertNotIn('MY-SECRET', fresh.secret_key_enc)
+
+    def test_one_credential_per_carrier_per_user(self):
+        CarrierCredential.objects.create(carrier='fedex', owner=self.alice)
+        from django.db import IntegrityError, transaction
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                CarrierCredential.objects.create(carrier='fedex', owner=self.alice)
+
+    def test_scoping_two_users_same_carrier(self):
+        CarrierCredential.objects.create(carrier='fedex', owner=self.alice)
+        CarrierCredential.objects.create(carrier='fedex', owner=self.bob)
+        self.assertEqual(self.alice.carrier_credentials.count(), 1)
+        self.assertEqual(self.bob.carrier_credentials.count(), 1)
+
+    def test_masking(self):
+        cred = CarrierCredential.objects.create(carrier='usps', owner=self.alice)
+        cred.set_secrets(api_key='ABCDEFGHIJ')
+        cred.save()
+        self.assertEqual(cred.masked_api_key, 'ABCD••••GHIJ')
