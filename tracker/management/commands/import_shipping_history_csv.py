@@ -57,11 +57,24 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('csv_path', type=str)
         parser.add_argument('--dry-run', action='store_true')
+        parser.add_argument('--user-id', type=int, default=None, help='Owner for imported packages (defaults to oldest superuser)')
 
     def handle(self, *args, **options):
         csv_path = Path(options['csv_path']).expanduser()
         if not csv_path.exists():
             raise CommandError(f'CSV not found: {csv_path}')
+
+        from django.contrib.auth import get_user_model
+
+        if options['user_id']:
+            owner = get_user_model().objects.filter(id=options['user_id']).first()
+            if owner is None:
+                raise CommandError(f'User {options["user_id"]} not found')
+        else:
+            owner = (
+                get_user_model().objects.filter(is_superuser=True).order_by('id').first()
+                or get_user_model().objects.order_by('id').first()
+            )
 
         created = 0
         updated = 0
@@ -103,6 +116,7 @@ class Command(BaseCommand):
 
                 package, was_created = Package.objects.get_or_create(
                     tracking_number=tracking_number,
+                    owner=owner,
                     defaults={
                         'nickname': nickname[:200],
                         'carrier': 'fedex',

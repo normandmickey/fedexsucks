@@ -61,13 +61,25 @@ def build_candidate_from_result(result: dict) -> dict:
     }
 
 
-def upsert_package_from_result(result: dict, payload: dict, nickname: str = '') -> Package:
+def default_owner():
+    from django.contrib.auth import get_user_model
+    return (
+        get_user_model().objects.filter(is_superuser=True).order_by('id').first()
+        or get_user_model().objects.order_by('id').first()
+    )
+
+
+def upsert_package_from_result(result: dict, payload: dict, nickname: str = '', owner=None) -> Package:
     tracking_number = (result.get('trackingNumberInfo') or {}).get('trackingNumber')
     if not tracking_number:
         raise RuntimeError('FedEx result did not include a tracking number')
 
+    if owner is None:
+        owner = default_owner()
+
     package, _ = Package.objects.get_or_create(
         tracking_number=tracking_number,
+        owner=owner,
         defaults={'nickname': nickname},
     )
     if nickname and not package.nickname:
@@ -129,6 +141,7 @@ def lookup_and_store_packages(
     account_number: str | None = None,
     reference_type: str = 'CUSTOMER_REFERENCE',
     force_reference_lookup: bool = False,
+    owner=None,
 ) -> dict:
     search_text = search_text.strip()
     if not search_text:
@@ -137,7 +150,7 @@ def lookup_and_store_packages(
     if not force_reference_lookup:
         try:
             payload, result = fetch_tracking_result(search_text)
-            package = upsert_package_from_result(result, payload)
+            package = upsert_package_from_result(result, payload, owner=owner)
             candidate = build_candidate_from_result(result)
             candidate['persisted'] = True
             candidate['package'] = package
@@ -171,7 +184,7 @@ def lookup_and_store_packages(
         candidate = build_candidate_from_result(result)
         tracking_number = candidate['tracking_number']
         if tracking_number and not candidate.get('has_error'):
-            package = upsert_package_from_result(result, payload, nickname=search_text)
+            package = upsert_package_from_result(result, payload, nickname=search_text, owner=owner)
             candidate['persisted'] = True
             candidate['package'] = package
             packages.append(package)

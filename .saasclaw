@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "enforce": "block",
+  "file_limits": {
+    "**/views.py": 200,
+    "**/models.py": 300,
+    "**/services.py": 400,
+    "**/*.py": 500,
+    "default": 500
+  },
+  "architecture": {
+    "rules": [
+      "Views are thin: request/response only, delegate to services",
+      "Business logic belongs in services.py",
+      "Models > 300 lines \u2192 split to models/ package",
+      "Views > 200 lines \u2192 split to views/ package",
+      "Never import models directly across apps"
+    ]
+  }
+}

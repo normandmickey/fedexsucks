@@ -160,3 +160,6 @@ LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
 INTERNAL_API_KEY = os.getenv('INTERNAL_API_KEY', '').strip()
+
+# Multi-tenant: invite code for /register/ (empty = registration closed)
+REGISTER_INVITE_CODE = os.getenv('REGISTER_INVITE_CODE', '').strip()

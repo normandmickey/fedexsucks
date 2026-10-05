@@ -8,7 +8,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.conf import settings as project_settings
+from django.contrib.auth import login as auth_login
+from django.contrib.auth.forms import UserCreationForm
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
 from django.utils import timezone
 
@@ -182,7 +185,7 @@ def validate_lookup_dates(ship_date_begin: str | None, ship_date_end: str | None
 @login_required
 def package_detail(request: HttpRequest, tracking_number: str) -> HttpResponse:
     try:
-        package = Package.objects.prefetch_related('events').get(tracking_number=tracking_number)
+        package = Package.objects.prefetch_related('events').get(tracking_number=tracking_number, owner=request.user)
     except Package.DoesNotExist as exc:
         raise Http404('Package not found') from exc
 
@@ -192,11 +195,11 @@ def package_detail(request: HttpRequest, tracking_number: str) -> HttpResponse:
             imported_csv_row = (package.last_raw_payload or {}).get('imported_csv_row')
             if imported_csv_row:
                 payload['imported_csv_row'] = imported_csv_row
-            package = upsert_package_from_result(result, payload, nickname=package.nickname)
+            package = upsert_package_from_result(result, payload, nickname=package.nickname, owner=request.user)
             messages.success(request, f'Refreshed {tracking_number} from FedEx.')
         except Exception as exc:
             messages.error(request, f'FedEx refresh failed for {tracking_number}: {exc}')
-        package = Package.objects.prefetch_related('events').get(tracking_number=tracking_number)
+        package = Package.objects.prefetch_related('events').get(tracking_number=tracking_number, owner=request.user)
 
     card = build_package_ui_snapshot(package)
     return render(request, 'tracker/package_detail.html', {
@@ -350,6 +353,7 @@ def internal_api_package_latest_status(request: HttpRequest, tracking_number: st
 
 
 
+@login_required
 def home(request: HttpRequest) -> HttpResponse:
     query = (request.GET.get('q') or '').strip()
     from_date_raw = (request.GET.get('from') or '').strip()
@@ -384,7 +388,7 @@ def home(request: HttpRequest) -> HttpResponse:
                         if 'Tracking Number' not in (reader.fieldnames or []):
                             raise RuntimeError('That file does not look like the FedEx shipping history export.')
                     command_output = StringIO()
-                    call_command('import_shipping_history_csv', temp_path, stdout=command_output)
+                    call_command('import_shipping_history_csv', temp_path, '--user-id', str(request.user.id), stdout=command_output)
                     summary_line = command_output.getvalue().strip().splitlines()[-1]
                     messages.success(request, f"Imported shipping history from {upload.name}. {summary_line} Existing packages were only updated when the file contained newer information.")
                 except Exception as exc:
@@ -403,6 +407,7 @@ def home(request: HttpRequest) -> HttpResponse:
             else:
                 saved_reference, created = SavedReference.objects.get_or_create(
                     reference_value=reference_value,
+                    owner=request.user,
                     defaults={
                         'label': label,
                         'reference_type': reference_type,
@@ -428,7 +433,7 @@ def home(request: HttpRequest) -> HttpResponse:
             lookup_text = (request.POST.get('lookup') or '').strip()
             selected_reference_id = (request.POST.get('saved_reference_id') or '').strip()
             typed_reference_values = set(
-                SavedReference.objects.filter(is_active=True).values_list('reference_value', flat=True)
+                SavedReference.objects.filter(is_active=True, owner=request.user).values_list('reference_value', flat=True)
             )
             ship_date_begin = (request.POST.get('ship_date_begin') or '').strip() or None
             ship_date_end = (request.POST.get('ship_date_end') or '').strip() or None
@@ -442,7 +447,7 @@ def home(request: HttpRequest) -> HttpResponse:
 
             if selected_reference_id and not lookup_text:
                 try:
-                    saved_reference = SavedReference.objects.get(id=selected_reference_id, is_active=True)
+                    saved_reference = SavedReference.objects.get(id=selected_reference_id, is_active=True, owner=request.user)
                     lookup_text = saved_reference.reference_value
                     lookup_reference_label = saved_reference.label or saved_reference.reference_value
                     reference_type = saved_reference.reference_type or reference_type
@@ -455,7 +460,7 @@ def home(request: HttpRequest) -> HttpResponse:
             if lookup_text and lookup_text in typed_reference_values:
                 force_reference_lookup = True
                 if not lookup_reference_label:
-                    saved_reference = SavedReference.objects.filter(reference_value=lookup_text, is_active=True).first()
+                    saved_reference = SavedReference.objects.filter(reference_value=lookup_text, is_active=True, owner=request.user).first()
                     if saved_reference:
                         lookup_reference_label = saved_reference.label or saved_reference.reference_value
                         reference_type = saved_reference.reference_type or reference_type
@@ -470,6 +475,7 @@ def home(request: HttpRequest) -> HttpResponse:
                     try:
                         result = lookup_and_store_packages(
                             lookup_text,
+                            owner=request.user,
                             ship_date_begin=ship_date_begin,
                             ship_date_end=ship_date_end,
                             destination_country_code=destination_country_code,
@@ -505,7 +511,7 @@ def home(request: HttpRequest) -> HttpResponse:
                     except Exception as exc:
                         messages.error(request, str(exc))
 
-    packages = Package.objects.prefetch_related('events').all()[:500]
+    packages = Package.objects.prefetch_related('events').filter(owner=request.user)[:500]
     if status_view == 'active':
         packages = [package for package in packages if (package.status or '').lower() not in {'delivered', 'cancelled'}]
     elif status_view == 'delivered':
@@ -523,7 +529,7 @@ def home(request: HttpRequest) -> HttpResponse:
             if package_in_date_range(card['package'], from_date, to_date)
         ]
 
-    saved_references = SavedReference.objects.filter(is_active=True).order_by('label', 'reference_value')[:200]
+    saved_references = SavedReference.objects.filter(is_active=True, owner=request.user).order_by('label', 'reference_value')[:200]
 
     tracking_hits = [result for result in lookup_results if result.get('tracking_number') and not result.get('has_error')]
     persisted_hits = [result for result in lookup_results if result.get('persisted') and result.get('package')]
@@ -553,3 +559,25 @@ def home(request: HttpRequest) -> HttpResponse:
         'default_ship_date_end': default_ship_date_end,
         'default_account_number': default_account_number,
     })
+
+
+def register(request: HttpRequest) -> HttpResponse:
+    invite_code = (getattr(project_settings, 'REGISTER_INVITE_CODE', '') or '').strip()
+    if not invite_code:
+        messages.info(request, 'Registration is currently closed.')
+        return redirect('login')
+
+    if request.method == 'POST':
+        supplied_code = (request.POST.get('invite_code') or '').strip()
+        form = UserCreationForm(request.POST)
+        if supplied_code != invite_code:
+            messages.error(request, 'That invite code is not valid.')
+        elif form.is_valid():
+            user = form.save()
+            auth_login(request, user)
+            messages.success(request, f'Welcome, {user.username}. Your workspace is ready.')
+            return redirect('home')
+    else:
+        form = UserCreationForm()
+
+    return render(request, 'registration/register.html', {'form': form})

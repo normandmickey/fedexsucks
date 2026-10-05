@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from tracker.views import home, internal_api_health, internal_api_package_detail, internal_api_package_latest_status, internal_api_package_search, package_detail, payroll_tax_lookup, research, weather_forecast
+from tracker.views import home, internal_api_health, internal_api_package_detail, internal_api_package_latest_status, internal_api_package_search, package_detail, payroll_tax_lookup, register, research, weather_forecast
 
 urlpatterns = [
     path('', home, name='home'),
@@ -30,6 +30,7 @@ urlpatterns = [
     path('research/', research, name='research'),
     path('weather/', weather_forecast, name='weather_forecast'),
     path('payroll-tax/', payroll_tax_lookup, name='payroll_tax_lookup'),
+    path('register/', register, name='register'),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('admin/', admin.site.urls),
