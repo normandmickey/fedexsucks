@@ -179,3 +179,86 @@ class ImportOwnerTests(TestCase):
             Path(path).unlink(missing_ok=True)
 
         self.assertEqual(Package.objects.filter(tracking_number='444444444444').count(), 2)
+
+
+class MultiCarrierImportTests(TestCase):
+    def _run_import(self, csv_text, user):
+        import tempfile
+        from pathlib import Path
+        from django.core.management import call_command
+
+        with tempfile.NamedTemporaryFile('w', suffix='.csv', delete=False, newline='') as handle:
+            handle.write(csv_text)
+            path = handle.name
+        try:
+            call_command('import_packages_csv', path, user_id=user.id)
+        finally:
+            Path(path).unlink(missing_ok=True)
+
+    def setUp(self):
+        self.alice, _ = make_users()
+
+    def test_ups_export_detected_and_stored(self):
+        self._run_import(
+            'Date/Time Shipped,Tracking Number,Receiver Name,Service,Status,Delivery Date\n'
+            '10/01/2026,1Z999AA10123456784,Acme Corp,UPS Ground,Delivered,10/04/2026\n',
+            self.alice,
+        )
+        package = Package.objects.get(tracking_number='1Z999AA10123456784')
+        self.assertEqual(package.carrier, 'ups')
+        self.assertEqual(package.owner, self.alice)
+        self.assertEqual(package.nickname, 'Acme Corp')
+        self.assertTrue((package.status or '').lower().startswith('delivered'))
+
+    def test_usps_export_detected_and_stored(self):
+        self._run_import(
+            'Ship Date,Tracking Number,Recipient Name,Status\n'
+            '09/28/2026,9400111899223197428490,Jane Doe,In Transit\n',
+            self.alice,
+        )
+        package = Package.objects.get(tracking_number='9400111899223197428490')
+        self.assertEqual(package.carrier, 'usps')
+        self.assertEqual(package.owner, self.alice)
+
+    def test_explicit_service_column_overrides_pattern(self):
+        self._run_import(
+            'Ship Date,Tracking Number,Service,Status\n'
+            '09/28/2026,9400111899223197428490,FedEx Ground Economy,In Transit\n',
+            self.alice,
+        )
+        package = Package.objects.get(tracking_number='9400111899223197428490')
+        self.assertEqual(package.carrier, 'fedex')
+
+    def test_fedex_number_pattern(self):
+        self._run_import(
+            'Ship Date,Tracking Number,Status\n'
+            '10/01/2026,794657111234,Delivered\n',
+            self.alice,
+        )
+        package = Package.objects.get(tracking_number='794657111234')
+        self.assertEqual(package.carrier, 'fedex')
+
+    def test_same_file_two_owners_two_rows(self):
+        bob = User.objects.get(username='bob')
+        csv_text = 'Tracking Number,Status\n1Z999AA10123456784,Delivered\n'
+        self._run_import(csv_text, self.alice)
+        self._run_import(csv_text, bob)
+        self.assertEqual(Package.objects.filter(tracking_number='1Z999AA10123456784').count(), 2)
+
+    def test_older_row_does_not_clobber_newer(self):
+        self._run_import('Tracking Number,Status,Delivery Date\n1Z999AA10123456784,Delivered,10/04/2026\n', self.alice)
+        self._run_import('Tracking Number,Status,Delivery Date\n1Z999AA10123456784,Delivered,10/01/2026\n', self.alice)
+        package = Package.objects.get(tracking_number='1Z999AA10123456784')
+        self.assertIsNotNone(package.delivered_at)
+        self.assertEqual(package.delivered_at.day, 4)
+
+    def test_view_routes_fedex_history_to_fedex_importer(self):
+        from tracker.csv_formats import looks_like_fedex_history, map_columns
+
+        fedex_fields = ['Tracking Number', 'Status', 'Status with details', 'Recipient contact name']
+        self.assertTrue(looks_like_fedex_history(fedex_fields))
+        ups_fields = ['Date/Time Shipped', 'Tracking Number', 'Receiver Name', 'Service']
+        self.assertFalse(looks_like_fedex_history(ups_fields))
+        self.assertIn('tracking', map_columns(ups_fields))
+        self.assertIn('tracking', map_columns(['Tracking #', 'Foo']))
+        self.assertNotIn('tracking', map_columns(['Order ID', 'Foo']))

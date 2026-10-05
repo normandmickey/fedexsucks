@@ -71,7 +71,7 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="import_csv">
       <div class="field" style="flex: 1 1 320px;">
-        <label for="shipping_csv">FedEx shipping history CSV</label>
+        <label for="shipping_csv">Shipping CSV export — FedEx, UPS, or USPS</label>
         <input id="shipping_csv" type="file" name="shipping_csv" accept=".csv,text/csv">
       </div>
       <button type="submit">Import file</button>

@@ -383,14 +383,20 @@ def home(request: HttpRequest) -> HttpResponse:
                         tmp.write(chunk)
                     temp_path = tmp.name
                 try:
+                    from tracker.csv_formats import looks_like_fedex_history, map_columns
+
                     with open(temp_path, newline='', encoding='utf-8-sig') as handle:
                         reader = csv.DictReader(handle)
-                        if 'Tracking Number' not in (reader.fieldnames or []):
-                            raise RuntimeError('That file does not look like the FedEx shipping history export.')
+                        fieldnames = reader.fieldnames or []
+                    if 'tracking' not in map_columns(fieldnames):
+                        raise RuntimeError('Could not find a tracking number column in that CSV.')
                     command_output = StringIO()
-                    call_command('import_shipping_history_csv', temp_path, '--user-id', str(request.user.id), stdout=command_output)
+                    if looks_like_fedex_history(fieldnames):
+                        call_command('import_shipping_history_csv', temp_path, '--user-id', str(request.user.id), stdout=command_output)
+                    else:
+                        call_command('import_packages_csv', temp_path, '--user-id', str(request.user.id), stdout=command_output)
                     summary_line = command_output.getvalue().strip().splitlines()[-1]
-                    messages.success(request, f"Imported shipping history from {upload.name}. {summary_line} Existing packages were only updated when the file contained newer information.")
+                    messages.success(request, f"Imported packages from {upload.name}. {summary_line} Existing packages were only updated when the file contained newer information.")
                 except Exception as exc:
                     messages.error(request, f'CSV import failed: {exc}')
                 finally:
