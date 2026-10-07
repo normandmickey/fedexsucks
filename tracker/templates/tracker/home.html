@@ -5,43 +5,68 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TrackingSucks</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; background: #111827; color: #f9fafb; }
-    h1 { margin-bottom: 0.25rem; }
-    h2, h3 { margin-bottom: 0.5rem; }
-    p { color: #d1d5db; }
-    .card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
-    .meta { color: #9ca3af; font-size: 0.95rem; margin: 0.25rem 0; }
-    .empty { padding: 1rem; border: 1px dashed #4b5563; border-radius: 12px; }
-    .section { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #374151; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.75rem; }
-    .panel { background: #111827; border: 1px solid #374151; border-radius: 10px; padding: 0.75rem; }
-    .label { color: #93c5fd; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
-    .value { color: #f9fafb; word-break: break-word; }
-    ul { margin-top: 0.75rem; padding-left: 1.25rem; }
-    li { margin-bottom: 0.4rem; }
-    pre { white-space: pre-wrap; word-break: break-word; font-size: 0.85rem; color: #d1d5db; }
-    form.search, form.lookup, form.save-reference { margin: 1rem 0 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; }
-    .field { display: flex; flex-direction: column; gap: 0.35rem; min-width: 180px; flex: 0 1 auto; }
-    .field label { color: #93c5fd; font-size: 0.85rem; }
-    input[type="text"], input[type="date"], select { width: 100%; min-height: 46px; padding: 0.8rem 0.9rem; border-radius: 10px; border: 1px solid #4b5563; background: #0f172a; color: #f9fafb; box-sizing: border-box; }
-    button, a.button-link { padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid #2563eb; background: #2563eb; color: white; text-decoration: none; cursor: pointer; display: inline-block; }
-    .messages { margin: 1rem 0; }
-    .message { padding: 0.85rem 1rem; border-radius: 10px; margin-bottom: 0.75rem; }
+    :root { --bg:#0b0d12; --panel:#12151c; --card:#161a23; --border:#232a38; --text:#e7ebf3; --mut:#8b93a5; --dim:#5d6577; --accent:#2dd4bf; --accent-ink:#062421; --link:#93c5fd; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 1rem 1rem 2.5rem; }
+    @media (min-width: 700px) { .wrap { padding: 2rem 2rem 3rem; } }
+    h1 { margin: 0.4rem 0 0.3rem; font-size: 1.65rem; letter-spacing: -0.02em; font-weight: 800; }
+    h1 em { font-style: normal; background: linear-gradient(100deg, #7c5cff, #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .tagline { color: var(--mut); margin: 0 0 1.25rem; font-size: 0.95rem; max-width: 640px; }
+    h2 { margin: 0 0 0.85rem; font-size: 1.15rem; letter-spacing: -0.01em; }
+    h3 { margin: 1.35rem 0 0.5rem; font-size: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1rem; margin: 0 0 1rem; }
+    .meta { color: var(--mut); font-size: 0.9rem; margin: 0.25rem 0; }
+    .empty { padding: 1.1rem; border: 1px dashed var(--border); border-radius: 12px; color: var(--mut); text-align: center; }
+    .messages { margin: 0 0 1rem; }
+    .message { padding: 0.85rem 1rem; border-radius: 12px; margin-bottom: 0.6rem; font-size: 0.95rem; }
     .message.success { background: #052e16; border: 1px solid #166534; color: #dcfce7; }
     .message.error { background: #450a0a; border: 1px solid #991b1b; color: #fecaca; }
-    .lookup-results { margin: 1rem 0 2rem; }
-    .summary-banner { background: #082f49; border: 1px solid #0ea5e9; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
-    .summary-banner strong { color: #e0f2fe; }
-    .queue-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-    .queue-table th, .queue-table td { text-align: left; padding: 0.85rem 0.75rem; border-top: 1px solid #374151; vertical-align: top; }
-    .queue-table th { color: #93c5fd; font-size: 0.85rem; font-weight: 600; }
-    .queue-table td { color: #f9fafb; }
+    form .fields { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; }
+    .field { display: flex; flex-direction: column; gap: 0.35rem; flex: 1 1 100%; }
+    .field.half { flex: 1 1 45%; }
+    @media (min-width: 700px) { .field.grow { flex: 1 1 320px; } .field.half { flex: 0 0 165px; } }
+    .field label { color: var(--accent); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+    input[type="text"], input[type="date"], input[type="file"] { width: 100%; min-height: 48px; padding: 0.8rem 0.9rem; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-size: 1rem; }
+    input[type="file"] { padding: 0.65rem 0.75rem; }
+    button, a.button-link { min-height: 48px; padding: 0.75rem 1.2rem; border-radius: 12px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 0.95rem; text-decoration: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    a.button-link.ghost { background: transparent; border-color: var(--border); color: var(--mut); font-weight: 600; }
+    form button[type="submit"] { width: 100%; }
+    @media (min-width: 700px) { form button[type="submit"] { width: auto; } form .fields > a.button-link.ghost { width: auto; } }
+    form .fields > a.button-link.ghost { flex: 1 1 100%; }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; }
+    .tabs a { flex: 1; min-height: 44px; padding: 0.5rem; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--mut); text-decoration: none; font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .tabs a.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    @media (min-width: 700px) { .tabs a { flex: 0 0 auto; padding: 0.5rem 1.5rem; } }
+    .filter-form { margin-bottom: 0.9rem; }
+    .summary-banner { background: #0a1f1c; border: 1px solid var(--accent); border-radius: 12px; padding: 1rem; margin-bottom: 0.5rem; }
+    .summary-banner strong { color: #ccfbf1; }
+    .lookup-results { margin: 0 0 1rem; }
+    .queue-table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+    .queue-table th, .queue-table td { text-align: left; padding: 0.8rem 0.7rem; border-top: 1px solid var(--border); vertical-align: top; }
+    .queue-table th { color: var(--dim); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .tn-link { color: var(--link); text-decoration: none; font-weight: 700; }
+    @media (max-width: 700px) {
+      .queue-table, .queue-table tbody, .queue-table tr, .queue-table td { display: block; width: 100%; }
+      .queue-table thead { display: none; }
+      .queue-table tr { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0.85rem 0.95rem; margin: 0 0 0.75rem; }
+      .queue-table td { display: flex; justify-content: space-between; align-items: baseline; gap: 0.9rem; border: none; padding: 0.22rem 0; text-align: right; font-size: 0.95rem; }
+      .queue-table td::before { content: attr(data-label); color: var(--dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; text-align: left; flex-shrink: 0; }
+      .queue-table td.wide { flex-direction: column; align-items: flex-start; gap: 0.15rem; text-align: left; }
+      .queue-table td.wide::before { margin-bottom: 0.15rem; }
+      .queue-table td.head-cell { border-bottom: 1px solid var(--border); margin-bottom: 0.45rem; padding-bottom: 0.5rem; font-size: 1.02rem; }
+      .queue-table td.head-cell::before { display: none; }
+      .queue-table td.action-cell { text-align: right; padding-top: 0.55rem; }
+      .queue-table td.action-cell::before { display: none; }
+      .queue-table td.action-cell .button-link { min-height: 42px; padding: 0.5rem 1.2rem; }
+    }
   </style>
 </head>
 <body>
-  <h1>TrackingSucks</h1>
-  <p>One private list for every FedEx, UPS, and USPS package — references, lookups, and CSV imports in one place.</p>
+  <div class="wrap">
+  <h1>tracking<em>sucks</em></h1>
+  <p class="tagline">One private list for every FedEx, UPS, and USPS package — references, lookups, and CSV imports in one place.</p>
   {% if messages %}
     <div class="messages">
       {% for message in messages %}
@@ -52,20 +77,22 @@
 
   <div class="card">
     <h2>Import new file</h2>
-    <form method="post" enctype="multipart/form-data" class="search">
+    <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="action" value="import_csv">
-      <div class="field" style="flex: 1 1 320px;">
-        <label for="shipping_csv">Shipping CSV export — FedEx, UPS, or USPS</label>
-        <input id="shipping_csv" type="file" name="shipping_csv" accept=".csv,text/csv">
+      <div class="fields">
+        <div class="field grow">
+          <label for="shipping_csv">Shipping CSV export — FedEx, UPS, or USPS</label>
+          <input id="shipping_csv" type="file" name="shipping_csv" accept=".csv,text/csv">
+        </div>
+        <button type="submit">Import file</button>
       </div>
-      <button type="submit">Import file</button>
     </form>
   </div>
 
   {% if lookup_results %}
     <div class="card lookup-results">
-      <h2>3. Lookup results</h2>
+      <h2>Lookup results</h2>
       <div class="summary-banner">
         <div>
           FedEx API returned <strong>{{ lookup_summary.real_hit_count }}</strong> trackable package(s)
@@ -84,21 +111,17 @@
         <table class="queue-table">
           <thead>
             <tr>
-              <th>Tracking</th>
-              <th>Status</th>
-              <th>Latest location</th>
-              <th>ETA</th>
-              <th></th>
+              <th>Tracking</th><th>Status</th><th>Latest location</th><th>ETA</th><th></th>
             </tr>
           </thead>
           <tbody>
             {% for result in tracking_hits %}
               <tr>
-                <td class="mono">{{ result.tracking_number }}</td>
-                <td>{{ result.status|default:"Unknown" }}{% if result.status_code %} ({{ result.status_code }}){% endif %}</td>
-                <td>{{ result.latest_location|default:"—" }}</td>
-                <td>{{ result.estimated_delivery|default:"—" }}</td>
-                <td><a class="button-link" href="/packages/{{ result.tracking_number|urlencode }}/">Details</a></td>
+                <td class="mono head-cell" data-label="Tracking"><span class="tn-link">{{ result.tracking_number }}</span></td>
+                <td data-label="Status">{{ result.status|default:"Unknown" }}{% if result.status_code %} ({{ result.status_code }}){% endif %}</td>
+                <td data-label="Location">{{ result.latest_location|default:"—" }}</td>
+                <td data-label="ETA">{{ result.estimated_delivery|default:"—" }}</td>
+                <td class="action-cell" data-label=""><a class="button-link" href="/packages/{{ result.tracking_number|urlencode }}/">Details</a></td>
               </tr>
             {% endfor %}
           </tbody>
@@ -110,21 +133,17 @@
         <table class="queue-table">
           <thead>
             <tr>
-              <th>Returned value</th>
-              <th>Status</th>
-              <th>Latest location</th>
-              <th>ETA</th>
-              <th>Notes</th>
+              <th>Returned value</th><th>Status</th><th>Latest location</th><th>ETA</th><th>Notes</th>
             </tr>
           </thead>
           <tbody>
             {% for result in unresolved_lookup_results %}
               <tr>
-                <td class="mono">{{ result.raw_result.trackingNumberInfo.trackingNumber|default:"—" }}</td>
-                <td>{{ result.status|default:"Unknown" }}{% if result.status_code %} ({{ result.status_code }}){% endif %}</td>
-                <td>{{ result.latest_location|default:"—" }}</td>
-                <td>{{ result.estimated_delivery|default:"—" }}</td>
-                <td>
+                <td class="mono head-cell" data-label="Value">{{ result.raw_result.trackingNumberInfo.trackingNumber|default:"—" }}</td>
+                <td data-label="Status">{{ result.status|default:"Unknown" }}{% if result.status_code %} ({{ result.status_code }}){% endif %}</td>
+                <td data-label="Location">{{ result.latest_location|default:"—" }}</td>
+                <td data-label="ETA">{{ result.estimated_delivery|default:"—" }}</td>
+                <td class="wide" data-label="Notes">
                   {% if result.status_code == 'TRACKING.REFERENCENUMBER.NOTFOUND' %}
                     Public API returned no trackable package for this row. This reference may still behave differently on fedex.com.
                   {% else %}
@@ -141,59 +160,57 @@
 
   <div class="card">
     <h2>Package queue</h2>
-    <div class="meta" style="margin-bottom: 0.75rem;">
-      <a class="button-link" href="/?view=active{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}" style="margin-right: 0.5rem; {% if status_view != 'active' %}background: #111827; border-color: #4b5563;{% endif %}">Active</a>
-      <a class="button-link" href="/?view=delivered{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}" style="margin-right: 0.5rem; {% if status_view != 'delivered' %}background: #111827; border-color: #4b5563;{% endif %}">Delivered</a>
-      <a class="button-link" href="/?view=all{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}" style="{% if status_view != 'all' %}background: #111827; border-color: #4b5563;{% endif %}">All</a>
+    <div class="tabs">
+      <a {% if status_view == 'active' %}class="on"{% endif %} href="/?view=active{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}">Active</a>
+      <a {% if status_view == 'delivered' %}class="on"{% endif %} href="/?view=delivered{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}">Delivered</a>
+      <a {% if status_view == 'all' %}class="on"{% endif %} href="/?view=all{% if query %}&q={{ query|urlencode }}{% endif %}{% if from_date %}&from={{ from_date|urlencode }}{% endif %}{% if to_date %}&to={{ to_date|urlencode }}{% endif %}">All</a>
     </div>
 
-    <form method="get" class="search">
+    <form method="get" class="filter-form">
       <input type="hidden" name="view" value="{{ status_view }}">
-      <div class="field" style="flex: 1 1 560px; min-width: 320px;">
-        <label for="q">Filter package queue</label>
-        <input id="q" type="text" name="q" value="{{ query }}" placeholder="Search tracking number, contact name, company, address, reference, or other imported shipping fields">
+      <div class="fields">
+        <div class="field grow">
+          <label for="q">Filter package queue</label>
+          <input id="q" type="text" name="q" value="{{ query }}" placeholder="Tracking number, name, company, address, reference…">
+        </div>
+        <div class="field half">
+          <label for="from">From date</label>
+          <input id="from" type="date" name="from" value="{{ from_date }}">
+        </div>
+        <div class="field half">
+          <label for="to">To date</label>
+          <input id="to" type="date" name="to" value="{{ to_date }}">
+        </div>
+        <button type="submit">Filter queue</button>
+        {% if query or from_date or to_date %}
+          <a class="button-link ghost" href="/">Clear</a>
+        {% endif %}
       </div>
-      <div class="field" style="width: 160px; min-width: 160px;">
-        <label for="from">From date</label>
-        <input id="from" type="date" name="from" value="{{ from_date }}">
-      </div>
-      <div class="field" style="width: 160px; min-width: 160px;">
-        <label for="to">To date</label>
-        <input id="to" type="date" name="to" value="{{ to_date }}">
-      </div>
-      <button type="submit">Filter queue</button>
-      {% if query or from_date or to_date %}
-        <a class="button-link" href="/">Clear</a>
-      {% endif %}
     </form>
 
     {% if package_cards %}
       <table class="queue-table">
         <thead>
           <tr>
-            <th>Tracking</th>
-            <th>Recipient</th>
-            <th>Dates</th>
-            <th>Status</th>
-            <th>Latest event</th>
+            <th>Tracking</th><th>Recipient</th><th>Dates</th><th>Status</th><th>Latest event</th>
           </tr>
         </thead>
         <tbody>
           {% for card in package_cards %}
             <tr>
-              <td class="mono"><a href="/packages/{{ card.package.tracking_number|urlencode }}/" style="color: #93c5fd; text-decoration: none;">{{ card.package.tracking_number }}</a></td>
-              <td>
+              <td class="mono head-cell" data-label="Tracking"><a class="tn-link" href="/packages/{{ card.package.tracking_number|urlencode }}/">{{ card.package.tracking_number }}</a></td>
+              <td class="wide" data-label="Recipient">
                 {% if card.recipient_contact %}<div><strong>{{ card.recipient_contact }}</strong></div>{% endif %}
                 {% if card.recipient_company %}<div class="meta">{{ card.recipient_company }}</div>{% endif %}
                 {% if card.recipient_address_summary %}<div class="meta">{{ card.recipient_address_summary }}</div>{% endif %}
               </td>
-              <td>
+              <td class="wide" data-label="Dates">
                 {% if card.ship_date %}<div class="meta">Ship: {{ card.ship_date }}</div>{% endif %}
                 {% if card.delivered_date %}<div class="meta">Delivered: {{ card.delivered_date }}</div>{% endif %}
                 {% if not card.ship_date and not card.delivered_date %}<div class="meta">—</div>{% endif %}
               </td>
-              <td>{{ card.package.status|default:"Unknown" }}{% if card.package.status_code %} ({{ card.package.status_code }}){% endif %}</td>
-              <td>{{ card.package.latest_event_at|default:"—" }}</td>
+              <td data-label="Status">{{ card.package.status|default:"Unknown" }}{% if card.package.status_code %} ({{ card.package.status_code }}){% endif %}</td>
+              <td data-label="Latest event">{{ card.package.latest_event_at|default:"—" }}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -201,6 +218,7 @@
     {% else %}
       <div class="empty">No tracked packages yet.</div>
     {% endif %}
+  </div>
   </div>
 </body>
 </html>
