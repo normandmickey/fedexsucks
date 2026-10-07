@@ -13,6 +13,9 @@
     h1 { margin: 0.4rem 0 0.3rem; font-size: 1.65rem; letter-spacing: -0.02em; font-weight: 800; }
     h1 em { font-style: normal; background: linear-gradient(100deg, #7c5cff, #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .tagline { color: var(--mut); margin: 0 0 1.25rem; font-size: 0.95rem; max-width: 640px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.4rem; }
+    .topbar h1 { margin: 0; }
+    a.compact { min-height: 40px; padding: 0.5rem 1rem; font-size: 0.85rem; }
     h2 { margin: 0 0 0.85rem; font-size: 1.15rem; letter-spacing: -0.01em; }
     h3 { margin: 1.35rem 0 0.5rem; font-size: 1rem; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1rem; margin: 0 0 1rem; }
@@ -65,7 +68,10 @@
 </head>
 <body>
   <div class="wrap">
-  <h1>tracking<em>sucks</em></h1>
+  <div class="topbar">
+    <h1>tracking<em>sucks</em></h1>
+    <a class="button-link ghost compact" href="/keys/">⚙ API keys</a>
+  </div>
   <p class="tagline">One private list for every FedEx, UPS, and USPS package — references, lookups, and CSV imports in one place.</p>
   {% if messages %}
     <div class="messages">

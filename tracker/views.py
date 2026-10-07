@@ -17,7 +17,8 @@ from django.utils import timezone
 
 from .fedex import env, fetch_tracking_result, first_result, load_local_env
 from .internal_api import InternalAPIAuthError, get_package_or_404, require_internal_api_key, search_packages, serialize_package_detail
-from .models import Package, SavedReference
+from .models import CarrierCredential, Package, SavedReference
+from .credentials import decrypt_secret, encrypt_secret, mask
 from .services import lookup_and_store_packages, upsert_package_from_result
 
 load_local_env()
@@ -500,3 +501,86 @@ def register(request: HttpRequest) -> HttpResponse:
         form = UserCreationForm()
 
     return render(request, 'registration/register.html', {'form': form})
+
+
+CARRIER_KEY_SHAPES = {
+    'fedex': {
+        'label': 'FedEx',
+        'api_label': 'API key',
+        'secret_label': 'Secret key',
+        'needs_secret': True,
+        'account_field': True,
+        'hint': 'developer.fedex.com — Production API key + secret.',
+    },
+    'ups': {
+        'label': 'UPS',
+        'api_label': 'Client ID',
+        'secret_label': 'Client secret',
+        'needs_secret': True,
+        'account_field': False,
+        'hint': 'developer.ups.com (Developer Kit) — OAuth client ID + secret.',
+    },
+    'usps': {
+        'label': 'USPS',
+        'api_label': 'API key',
+        'secret_label': '',
+        'needs_secret': False,
+        'account_field': False,
+        'hint': 'registration.usps.com — X-API-Key.',
+    },
+}
+
+
+@login_required
+def carrier_keys(request: HttpRequest) -> HttpResponse:
+    """Tenant BYOK dashboard: add, review (masked), and delete carrier API keys."""
+    if request.method == 'POST':
+        action = (request.POST.get('action') or '').strip()
+        carrier = (request.POST.get('carrier') or '').strip()
+        if carrier not in CARRIER_KEY_SHAPES:
+            messages.error(request, 'Unknown carrier.')
+            return redirect('carrier_keys')
+        shape = CARRIER_KEY_SHAPES[carrier]
+        if action == 'delete':
+            deleted, _ = CarrierCredential.objects.filter(
+                owner=request.user, carrier=carrier).delete()
+            if deleted:
+                messages.success(request, f'{shape["label"]} keys removed.')
+            return redirect('carrier_keys')
+        if action == 'save':
+            api_key = (request.POST.get('api_key') or '').strip()
+            secret_key = (request.POST.get('secret_key') or '').strip()
+            account_number = (request.POST.get('account_number') or '').strip()
+            if not api_key or (shape['needs_secret'] and not secret_key):
+                messages.error(request, f'Fill in every required {shape["label"]} field.')
+            else:
+                CarrierCredential.objects.update_or_create(
+                    owner=request.user, carrier=carrier,
+                    defaults={
+                        'api_key_enc': encrypt_secret(api_key),
+                        'secret_key_enc': encrypt_secret(secret_key),
+                        'account_number': account_number,
+                    })
+                messages.success(request, f'{shape["label"]} keys saved — encrypted at rest.')
+            return redirect('carrier_keys')
+
+    creds = {c.carrier: c for c in
+             CarrierCredential.objects.filter(owner=request.user)}
+    cards = []
+    for carrier, shape in CARRIER_KEY_SHAPES.items():
+        cred = creds.get(carrier)
+        cards.append({
+            'carrier': carrier,
+            'label': shape['label'],
+            'hint': shape['hint'],
+            'needs_secret': shape['needs_secret'],
+            'account_field': shape['account_field'],
+            'api_label': shape['api_label'],
+            'secret_label': shape['secret_label'],
+            'is_set': bool(cred),
+            'masked_api': mask(decrypt_secret(cred.api_key_enc)) if cred else '',
+            'masked_secret': mask(decrypt_secret(cred.secret_key_enc)) if cred else '',
+            'account_number': cred.account_number if cred else '',
+            'updated_at': cred.updated_at if cred else None,
+        })
+    return render(request, 'tracker/api_keys.html', {'cards': cards})

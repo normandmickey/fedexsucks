@@ -295,3 +295,52 @@ class CarrierCredentialTests(TestCase):
         cred.set_secrets(api_key='ABCDEFGHIJ')
         cred.save()
         self.assertEqual(cred.masked_api_key, 'ABCD••••GHIJ')
+
+
+class CarrierKeysViewTests(TestCase):
+    def setUp(self):
+        self.alice, self.bob = make_users()
+
+    def test_keys_page_requires_login(self):
+        response = self.client.get('/keys/')
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('login', response['Location'])
+
+    def test_save_encrypts_and_masks(self):
+        self.client.force_login(self.alice)
+        response = self.client.post('/keys/', {
+            'action': 'save', 'carrier': 'fedex',
+            'api_key': 'test-api-key-1234567890', 'secret_key': 'test-secret-0987654321',
+        })
+        self.assertRedirects(response, '/keys/')
+        cred = CarrierCredential.objects.get(owner=self.alice, carrier='fedex')
+        self.assertNotEqual(cred.api_key_enc, 'test-api-key-1234567890')
+        self.assertNotEqual(cred.api_key_enc, '')
+        page = self.client.get('/keys/')
+        self.assertContains(page, 'test••••7890')
+        self.assertNotContains(page, 'test-api-key-1234567890')
+
+    def test_usps_requires_only_api_key(self):
+        self.client.force_login(self.alice)
+        self.client.post('/keys/', {'action': 'save', 'carrier': 'usps', 'api_key': 'usps-key-1'})
+        self.assertTrue(CarrierCredential.objects.filter(owner=self.alice, carrier='usps').exists())
+
+    def test_fedex_requires_secret(self):
+        self.client.force_login(self.alice)
+        self.client.post('/keys/', {'action': 'save', 'carrier': 'fedex', 'api_key': 'k'})
+        self.assertFalse(CarrierCredential.objects.filter(owner=self.alice).exists())
+
+    def test_keys_scoped_to_owner(self):
+        CarrierCredential.objects.create(owner=self.alice, carrier='fedex',
+                                         api_key_enc='alice-enc', secret_key_enc='alice-enc2')
+        self.client.force_login(self.bob)
+        page = self.client.get('/keys/')
+        self.assertNotContains(page, 'alice-enc')
+        self.client.post('/keys/', {'action': 'delete', 'carrier': 'fedex'})
+        self.assertTrue(CarrierCredential.objects.filter(owner=self.alice).exists())
+
+    def test_delete_removes_own_keys(self):
+        CarrierCredential.objects.create(owner=self.alice, carrier='ups', api_key_enc='enc')
+        self.client.force_login(self.alice)
+        self.client.post('/keys/', {'action': 'delete', 'carrier': 'ups'})
+        self.assertFalse(CarrierCredential.objects.filter(owner=self.alice).exists())

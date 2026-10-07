@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from tracker.views import home, internal_api_health, internal_api_package_detail, internal_api_package_latest_status, internal_api_package_search, package_detail, register
+from tracker.views import carrier_keys, home, internal_api_health, internal_api_package_detail, internal_api_package_latest_status, internal_api_package_search, package_detail, register
 
 urlpatterns = [
     path('', home, name='home'),
@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/internal/packages/<str:tracking_number>/', internal_api_package_detail, name='internal_api_package_detail'),
     path('api/internal/packages/<str:tracking_number>/latest-status/', internal_api_package_latest_status, name='internal_api_package_latest_status'),
     path('packages/<str:tracking_number>/', package_detail, name='package_detail'),
+    path('keys/', carrier_keys, name='carrier_keys'),
     path('register/', register, name='register'),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
