@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FedExSucks</title>
+  <title>TrackingSucks</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 2rem; background: #111827; color: #f9fafb; }
     h1 { margin-bottom: 0.25rem; }
@@ -37,26 +37,11 @@
     .queue-table th { color: #93c5fd; font-size: 0.85rem; font-weight: 600; }
     .queue-table td { color: #f9fafb; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .brand-row { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.5rem; }
-    .fedex-badge { display: inline-flex; align-items: center; font-weight: 800; font-size: 1.1rem; border-radius: 999px; overflow: hidden; border: 1px solid #374151; }
-    .fedex-badge .fed { background: #4d148c; color: #fff; padding: 0.35rem 0.55rem; }
-    .fedex-badge .ex { background: #ff6600; color: #fff; padding: 0.35rem 0.55rem; }
   </style>
 </head>
 <body>
-  <div class="brand-row">
-    <div class="fedex-badge" aria-label="FedEx">
-      <span class="fed">Fed</span><span class="ex">Ex</span>
-    </div>
-    <h1>FedExSucks</h1>
-  </div>
-  <p>Manage references, look up packages by reference/account/date range, then separate real tracking hits from FedEx rows the public API could not resolve.</p>
-  <p>
-    <a class="button-link" href="/research/">Open research tool</a>
-    <a class="button-link" href="/weather/" style="margin-left: 0.5rem; background: #0f3b2e; border-color: #34d399;">Open weather forecaster</a>
-    <a class="button-link" href="/payroll-tax/" style="margin-left: 0.5rem; background: #111827; border-color: #4b5563;">Open payroll tax tool</a>
-  </p>
-
+  <h1>TrackingSucks</h1>
+  <p>One private list for every FedEx, UPS, and USPS package — references, lookups, and CSV imports in one place.</p>
   {% if messages %}
     <div class="messages">
       {% for message in messages %}

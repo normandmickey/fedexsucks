@@ -18,10 +18,7 @@ from django.utils import timezone
 from .fedex import env, fetch_tracking_result, first_result, load_local_env
 from .internal_api import InternalAPIAuthError, get_package_or_404, require_internal_api_key, search_packages, serialize_package_detail
 from .models import Package, SavedReference
-from .payroll_tax import PayrollTaxConfigurationError, PayrollTaxLookupError, lookup_payroll_taxes
-from .research import ResearchConfigurationError, run_research
 from .services import lookup_and_store_packages, upsert_package_from_result
-from .weather import WeatherLookupError, fetch_weather
 
 load_local_env()
 
@@ -205,90 +202,6 @@ def package_detail(request: HttpRequest, tracking_number: str) -> HttpResponse:
     return render(request, 'tracker/package_detail.html', {
         'card': card,
         'package': package,
-    })
-
-
-@login_required
-def research(request: HttpRequest) -> HttpResponse:
-    topic = (request.POST.get('topic') or request.GET.get('topic') or '').strip()
-    report = ''
-    sources: list[str] = []
-
-    if request.method == 'POST':
-        if not topic:
-            messages.error(request, 'Enter a research topic.')
-        else:
-            try:
-                result = run_research(topic)
-                topic = result.topic
-                report = result.report
-                sources = result.sources
-                messages.success(request, f"Research complete for '{topic}'.")
-            except ResearchConfigurationError as exc:
-                messages.error(request, str(exc))
-            except Exception as exc:
-                messages.error(request, f'Research failed: {exc}')
-
-    return render(request, 'tracker/research.html', {
-        'topic': topic,
-        'report': report,
-        'sources': sources,
-    })
-
-
-@login_required
-def payroll_tax_lookup(request: HttpRequest) -> HttpResponse:
-    form_values = {
-        'workState': (request.POST.get('workState') or 'CA').strip(),
-        'payDate': (request.POST.get('payDate') or date.today().isoformat()).strip(),
-        'residenceState': (request.POST.get('residenceState') or '').strip(),
-        'filingStatus': (request.POST.get('filingStatus') or 'single').strip(),
-        'grossWages': (request.POST.get('grossWages') or '1000').strip(),
-        'ytdWages': (request.POST.get('ytdWages') or '').strip(),
-        'payPeriod': (request.POST.get('payPeriod') or 'biweekly').strip(),
-        'allowances': (request.POST.get('allowances') or '').strip(),
-    }
-    lookup_payload = None
-    taxes = []
-    request_params = None
-
-    if request.method == 'POST':
-        try:
-            lookup_payload = lookup_payroll_taxes(form_values)
-            taxes = lookup_payload.get('taxes', []) or []
-            request_params = lookup_payload.get('_request_params') or {}
-            messages.success(request, f"Loaded {len(taxes)} tax rows.")
-        except PayrollTaxConfigurationError as exc:
-            messages.error(request, str(exc))
-        except PayrollTaxLookupError as exc:
-            messages.error(request, str(exc))
-        except Exception as exc:
-            messages.error(request, f'Payroll tax lookup failed: {exc}')
-
-    return render(request, 'tracker/payroll_tax.html', {
-        'form_values': form_values,
-        'lookup_payload': lookup_payload,
-        'taxes': taxes,
-        'request_params': request_params,
-        'pay_period_choices': ['weekly', 'biweekly', 'semimonthly', 'monthly', 'annual'],
-        'filing_status_choices': ['single', 'married', 'head_of_household'],
-    })
-
-
-@login_required
-def weather_forecast(request: HttpRequest) -> HttpResponse:
-    location = (request.GET.get('location') or 'New York').strip() or 'New York'
-    forecast = None
-    try:
-        forecast = fetch_weather(location)
-    except WeatherLookupError as exc:
-        messages.error(request, str(exc))
-    except Exception as exc:
-        messages.error(request, f'Weather lookup failed: {exc}')
-
-    return render(request, 'tracker/weather.html', {
-        'location': location,
-        'forecast': forecast,
     })
 
 
