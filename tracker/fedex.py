@@ -129,11 +129,18 @@ def first_result(payload: dict[str, Any]) -> dict[str, Any] | None:
     return track_results[0]
 
 
-def fetch_tracking_result(tracking_number: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def fetch_tracking_result(
+    tracking_number: str,
+    api_key: str | None = None,
+    secret_key: str | None = None,
+    base_url: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     load_local_env()
-    base_url = env('FEDEX_BASE_URL', required=False, default='https://apis.fedex.com')
-    api_key = env('FEDEX_API_KEY')
-    secret_key = env('FEDEX_SECRET_KEY')
+    base_url = base_url or env('FEDEX_BASE_URL', required=False, default='https://apis.fedex.com')
+    api_key = api_key or env('FEDEX_API_KEY', required=False)
+    secret_key = secret_key or env('FEDEX_SECRET_KEY', required=False)
+    if not api_key or not secret_key:
+        raise RuntimeError('No FedEx API keys configured — add yours under API keys.')
     token = request_access_token(base_url, api_key, secret_key)
     payload = request_tracking(base_url, token, tracking_number)
     result = first_result(payload)

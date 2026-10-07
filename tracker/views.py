@@ -16,9 +16,11 @@ from django.views.decorators.http import require_GET
 from django.utils import timezone
 
 from .fedex import env, fetch_tracking_result, first_result, load_local_env
+from .ups import fetch_tracking_result as fetch_ups_tracking
+from .usps import fetch_tracking_result as fetch_usps_tracking
 from .internal_api import InternalAPIAuthError, get_package_or_404, require_internal_api_key, search_packages, serialize_package_detail
 from .models import CarrierCredential, Package, SavedReference
-from .credentials import decrypt_secret, encrypt_secret, mask
+from .credentials import decrypt_secret, encrypt_secret, mask, resolve_carrier_credentials
 from .services import lookup_and_store_packages, upsert_package_from_result
 
 load_local_env()
@@ -188,15 +190,34 @@ def package_detail(request: HttpRequest, tracking_number: str) -> HttpResponse:
         raise Http404('Package not found') from exc
 
     if request.method == 'POST' and (request.POST.get('action') or '').strip() == 'refresh_tracking':
+        carrier = (package.carrier or 'fedex').lower()
+        source = {'fedex': 'FedEx', 'ups': 'UPS', 'usps': 'USPS'}.get(carrier, carrier.title())
         try:
-            payload, result = fetch_tracking_result(tracking_number)
+            creds = resolve_carrier_credentials(package.owner, carrier) or {}
+            if carrier == 'ups':
+                payload, result = fetch_ups_tracking(
+                    tracking_number,
+                    client_id=creds.get('api_key'),
+                    client_secret=creds.get('secret_key'),
+                    base_url=creds.get('base_url') or None)
+            elif carrier == 'usps':
+                payload, result = fetch_usps_tracking(
+                    tracking_number,
+                    api_key=creds.get('api_key'),
+                    base_url=creds.get('base_url') or None)
+            else:
+                payload, result = fetch_tracking_result(
+                    tracking_number,
+                    api_key=creds.get('api_key'),
+                    secret_key=creds.get('secret_key'),
+                    base_url=creds.get('base_url') or None)
             imported_csv_row = (package.last_raw_payload or {}).get('imported_csv_row')
             if imported_csv_row:
                 payload['imported_csv_row'] = imported_csv_row
             package = upsert_package_from_result(result, payload, nickname=package.nickname, owner=request.user)
-            messages.success(request, f'Refreshed {tracking_number} from FedEx.')
+            messages.success(request, f'Refreshed {tracking_number} from {source}.')
         except Exception as exc:
-            messages.error(request, f'FedEx refresh failed for {tracking_number}: {exc}')
+            messages.error(request, f'{source} refresh failed for {tracking_number}: {exc}')
         package = Package.objects.prefetch_related('events').get(tracking_number=tracking_number, owner=request.user)
 
     card = build_package_ui_snapshot(package)

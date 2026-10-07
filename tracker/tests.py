@@ -3,6 +3,11 @@ from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 
+from unittest.mock import patch
+
+from . import ups as ups_client
+from . import usps as usps_client
+from .credentials import encrypt_secret
 from .models import CarrierCredential, Package, SavedReference
 
 
@@ -344,3 +349,99 @@ class CarrierKeysViewTests(TestCase):
         self.client.force_login(self.alice)
         self.client.post('/keys/', {'action': 'delete', 'carrier': 'ups'})
         self.assertFalse(CarrierCredential.objects.filter(owner=self.alice).exists())
+
+
+UPS_FIXTURE = {'trackResponse': {'shipments': [{'package': {
+    'trackingNumber': '1Z8479RQ0392817465',
+    'currentStatus': {'code': 'of', 'description': 'Out for Delivery'},
+    'deliveryInformation': {'estimatedDeliveryDate': '2026-10-08'},
+    'activityScan': [
+        {'date': '2026-10-07', 'time': '08:14:00', 'status': {'code': 'of', 'description': 'Out for Delivery'},
+         'location': {'address': {'city': 'MIDDLETOWN', 'stateCode': 'CT', 'countryCode': 'US'}}},
+        {'date': '2026-10-06', 'time': '19:42:00', 'status': {'code': 'or', 'description': 'Origin Scan'},
+         'location': {'address': {'city': 'LOUISVILLE', 'stateCode': 'KY'}}},
+    ]}}]}}
+
+USPS_FIXTURE = {
+    'trackingNumber': '9400111899223197428490',
+    'status': 'In Transit',
+    'statusSummary': 'In Transit to Next Facility',
+    'scanHistory': {'scan': [
+        {'event': 'In Transit to Next Facility', 'date': 'October 6, 2026', 'time': '9:14 am',
+         'scanLocation': 'CHARLOTTE NC DISTRIBUTION CENTER'},
+        {'event': 'USPS in Possession of Item', 'date': '2026-10-04', 'time': '132000',
+         'scanLocation': 'ATLANTA GA 30309'},
+    ]},
+}
+
+
+class CarrierClientNormalizeTests(TestCase):
+    def test_ups_normalize(self):
+        result = ups_client.normalize_result(UPS_FIXTURE)
+        self.assertEqual(result['trackingNumberInfo']['trackingNumber'], '1Z8479RQ0392817465')
+        self.assertEqual(result['latestStatusDetail']['statusByLocale'], 'Out for Delivery')
+        self.assertEqual(result['latestStatusDetail']['scanDateTime'], '2026-10-07T08:14:00')
+        self.assertEqual(len(result['scanEvents']), 2)
+        self.assertEqual(result['scanEvents'][0]['scanLocation']['city'], 'MIDDLETOWN')
+        self.assertEqual(result['dateAndTimes'][0]['type'], 'Estimated Delivery')
+
+    def test_usps_normalize(self):
+        result = usps_client.normalize_result(USPS_FIXTURE)
+        self.assertEqual(result['latestStatusDetail']['statusByLocale'], 'In Transit')
+        self.assertEqual(result['latestStatusDetail']['code'], 'IT')
+        self.assertEqual(len(result['scanEvents']), 2)
+        self.assertEqual(result['scanEvents'][0]['scanLocation']['city'], 'CHARLOTTE NC DISTRIBUTION CENTER')
+
+    def test_usps_delivered_maps_to_dl_not_exception(self):
+        result = usps_client.normalize_result(dict(USPS_FIXTURE, status='Delivered', deliveryDate='2026-10-06'))
+        self.assertEqual(result['latestStatusDetail']['code'], 'DL')
+        self.assertEqual(result['dateAndTimes'][0]['type'], 'Delivered')
+
+
+class RefreshThreadingTests(TestCase):
+    def setUp(self):
+        self.alice, _bob = make_users()
+
+    @patch('tracker.views.fetch_tracking_result')
+    def test_refresh_uses_byok_creds(self, mock_fetch):
+        CarrierCredential.objects.create(
+            owner=self.alice, carrier='fedex',
+            api_key_enc=encrypt_secret('byok-api-1234567890'),
+            secret_key_enc=encrypt_secret('byok-secret'))
+        Package.objects.create(tracking_number='794653128740', owner=self.alice, carrier='fedex')
+        mock_fetch.return_value = ({}, {
+            'trackingNumberInfo': {'trackingNumber': '794653128740'},
+            'latestStatusDetail': {'statusByLocale': 'In transit', 'code': 'IT'},
+            'scanEvents': []})
+        self.client.force_login(self.alice)
+        response = self.client.post('/packages/794653128740/', {'action': 'refresh_tracking'})
+        mock_fetch.assert_called_once_with(
+            '794653128740', api_key='byok-api-1234567890', secret_key='byok-secret', base_url=None)
+        self.assertContains(response, 'from FedEx')
+
+    @patch('tracker.views.fetch_tracking_result')
+    def test_refresh_env_fallback_without_creds(self, mock_fetch):
+        Package.objects.create(tracking_number='490725361890', owner=self.alice, carrier='fedex')
+        mock_fetch.return_value = ({}, {
+            'trackingNumberInfo': {'trackingNumber': '490725361890'},
+            'latestStatusDetail': {'statusByLocale': 'In transit', 'code': 'IT'},
+            'scanEvents': []})
+        self.client.force_login(self.alice)
+        self.client.post('/packages/490725361890/', {'action': 'refresh_tracking'})
+        mock_fetch.assert_called_once_with(
+            '490725361890', api_key=None, secret_key=None, base_url=None)
+
+    @patch('tracker.views.fetch_ups_tracking')
+    def test_refresh_dispatches_ups(self, mock_ups):
+        Package.objects.create(tracking_number='1Z8479RQ0392817465', owner=self.alice, carrier='ups')
+        mock_ups.return_value = ({}, ups_client.normalize_result(UPS_FIXTURE))
+        self.client.force_login(self.alice)
+        response = self.client.post('/packages/1Z8479RQ0392817465/', {'action': 'refresh_tracking'})
+        mock_ups.assert_called_once()
+        self.assertContains(response, 'from UPS')
+
+    def test_clients_raise_without_credentials(self):
+        with self.assertRaises(RuntimeError):
+            ups_client.fetch_tracking_result('1Z8479RQ0392817465')
+        with self.assertRaises(RuntimeError):
+            usps_client.fetch_tracking_result('9400111899223197428490')

@@ -55,7 +55,7 @@
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="action" value="refresh_tracking">
-      <button class="button-link" type="submit">Refresh from FedEx</button>
+      <button class="button-link" type="submit">Refresh status</button>
     </form>
     <div class="meta">Status: {{ package.status|default:"Unknown" }}{% if package.status_code %} ({{ package.status_code }}){% endif %}</div>
     <div class="meta">Latest location: {{ package.latest_location|default:"—" }}</div>
